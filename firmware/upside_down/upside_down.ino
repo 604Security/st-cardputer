@@ -20,7 +20,9 @@
 #define VOLUME           6     // 0 = silent ... 10 = loud
 #define DEMO_X           166   // where the Demogorgon stands (0 = far left, 239 = far right)
 #define DEMO_EVERY       5000  // milliseconds between the Demogorgon opening its head
-#define WILL_PEEK        9     // how far Will leans out from behind his tree (0 = never)
+#define WILL_PEEK        12    // how far Will leans out from behind his tree (0 = never)
+#define FRIEND_SPEED     1.0   // how fast the friends walk while they search for Will
+#define CALL_EVERY       90    // frames between someone shouting "Will?" (30 frames = 1 second)
 // ------------------------------------------------------------------------------
 
 #define W 240
@@ -33,6 +35,10 @@ TFT_eSprite bg(&tft);           // the world picture (drawn once per world)
 TFT_eSprite frame(&tft);        // what we show this frame (bg + moving stuff)
 
 bool upsideDown = false;
+
+// the search party friends (their drawing code is further down)
+enum Look { ELEVEN, MIKE, DUSTIN, LUCAS };
+struct Friend { Look look; float x; int dir; float speed; };
 
 uint16_t rgb(int r, int g, int b) { return tft.color565(r, g, b); }
 
@@ -331,18 +337,78 @@ void drawTree(TFT_eSprite& s, int x, uint16_t c, bool flip) {
 }
 
 void drawWill(TFT_eSprite& s, float peek, bool flip) {
-  auto Y = [&](float y) { return flip ? (H - 1 - (int)y) : (int)y; };
-  int x = 44 + (int)(peek * WILL_PEEK);           // slides out from behind the tree
-  uint16_t skin = rgb(215, 175, 145), hair = rgb(105, 65, 35);
-  uint16_t jacket = rgb(60, 85, 120), jeans = rgb(45, 50, 80);
-  s.fillRect(x - 3, Y(113), 7, 4, jeans);          // crouched legs (Y flips, so draw up from the ground)
-  s.fillRect(x - 3, Y(109), 7, 6, jacket);         // body
-  s.fillCircle(x, Y(101), 3, skin);                // head
-  s.fillRect(x - 3, Y(99), 7, 2, hair);            // bowl haircut
-  s.drawPixel(x - 3, Y(101), hair); s.drawPixel(x + 3, Y(101), hair);
-  s.drawPixel(x + 1, Y(101), TFT_BLACK);           // eye, looking at the Demogorgon
-  s.fillRect(x + 3, Y(107), 2, 2, skin);           // hand holding the tree
+  // rect in normal (not flipped) coordinates; flips it if we're in the Upside Down
+  auto box = [&](int x, int y, int w, int h, uint16_t c) { s.fillRect(x, flip ? H - y - h : y, w, h, c); };
+  auto Y = [&](int y) { return flip ? H - 1 - y : y; };
+  int x = 50 + (int)(peek * WILL_PEEK);           // half behind the tree, leaning out to watch
+  uint16_t skin = rgb(240, 200, 170), hair = rgb(150, 95, 50);
+  uint16_t jacket = rgb(80, 130, 200), jeans = rgb(60, 70, 130);
+
+  if (peek > 0.4f)                                 // flashlight beam (off when he hides!)
+    s.fillTriangle(x + 10, Y(101), x + 55, Y(93), x + 55, Y(110), rgb(120, 110, 45));
+  box(x - 4, 108, 9, 6, jeans);                    // crouched legs
+  box(x - 4, 99, 9, 9, jacket);                    // jacket
+  s.fillCircle(x, Y(94), 4, skin);                 // head
+  box(x - 4, 89, 9, 4, hair);                      // bowl haircut
+  box(x - 4, 93, 1, 3, hair); box(x + 4, 93, 1, 3, hair);
+  s.drawPixel(x + 2, Y(94), TFT_BLACK);            // eye, looking at the Demogorgon
+  box(x + 4, 101, 3, 2, skin);                     // hand
+  box(x + 6, 100, 4, 3, rgb(160, 160, 160));       // flashlight
   drawTree(s, 42, rgb(10, 5, 6), flip);            // tree in front, so he's hiding behind it
+}
+
+// ============================ THE SEARCH PARTY ================================
+// Four friends walk the street at night with flashlights, looking for Will.
+Friend friends[4] = {
+  {ELEVEN, 120, 1, 0.45f}, {MIKE, 40, 1, 0.6f}, {DUSTIN, 200, -1, 0.5f}, {LUCAS, 160, -1, 0.7f},
+};
+
+void drawFriend(TFT_eSprite& s, const Friend& f, bool talking) {
+  int x = (int)f.x, d = f.dir, step = ((int)(f.x / 3)) % 2 ? 1 : -1;
+  uint16_t skin = rgb(240, 200, 170), shirt, pants, hair;
+  switch (f.look) {
+    case ELEVEN: shirt = rgb(240, 120, 165); pants = skin;               hair = rgb(95, 70, 50);  break;
+    case MIKE:   shirt = rgb(40, 140, 90);   pants = rgb(50, 60, 120);   hair = rgb(25, 18, 12);  break;
+    case DUSTIN: shirt = rgb(230, 190, 60);  pants = rgb(110, 80, 50);   hair = rgb(135, 90, 50); break;
+    case LUCAS:  shirt = rgb(205, 120, 50);  pants = rgb(50, 60, 95);    hair = rgb(20, 15, 10);
+                 skin = rgb(125, 82, 55); break;
+  }
+  int hx = x + 5 * d;                                              // hand with the flashlight
+  s.fillTriangle(hx + 4 * d, 114, hx + 42 * d, 106, hx + 42 * d, 123, rgb(110, 105, 50));   // beam
+  thick(s, x - 2, 120, x - 2 - step, 127, pants);                  // legs (they swap = walking!)
+  thick(s, x + 1, 120, x + 1 + step, 127, pants);
+  if (f.look == ELEVEN) s.fillRect(x - 5, 110, 11, 12, shirt);     // Eleven's dress
+  else                  s.fillRect(x - 4, 110, 9, 10, shirt);
+  s.fillRect(hx, 113, 4, 3, rgb(160, 160, 160));                   // flashlight
+  s.fillCircle(x, 104, 4, skin);                                   // head
+  s.drawPixel(x + 2 * d, 104, TFT_BLACK);                          // eye, looking where they walk
+  switch (f.look) {
+    case ELEVEN: s.drawFastHLine(x - 3, 100, 7, hair); break;      // buzz cut
+    case MIKE:   s.fillRect(x - 4, 99, 9, 3, hair); s.fillRect(x - 4 * d, 102, 1, 4, hair); break;
+    case DUSTIN: s.fillRect(x - 4, 99, 9, 3, rgb(40, 70, 170));     // cap...
+                 s.fillRect(d > 0 ? x + 3 : x - 7, 101, 5, 1, rgb(40, 70, 170));   // ...with a brim
+                 s.fillRect(x - 5 * d, 102, 2, 4, hair); break;     // curls sticking out
+    case LUCAS:  s.fillRect(x - 4, 99, 9, 2, hair);
+                 s.fillRect(x - 4, 101, 9, 2, rgb(85, 105, 55)); break;   // bandana
+  }
+  if (talking) {                                                   // shout for Will
+    s.setTextFont(1); s.setTextDatum(BC_DATUM);
+    s.setTextColor(TFT_WHITE);
+    s.drawString("Will?", x, 97);
+  }
+}
+
+void drawSearchParty(TFT_eSprite& s, uint32_t n) {
+  static int caller = 0;
+  if (n % CALL_EVERY == 0) caller = random(4);
+  bool calling = (n % CALL_EVERY) < 40;
+  for (int i = 0; i < 4; i++) {
+    Friend& f = friends[i];
+    f.x += f.dir * f.speed * FRIEND_SPEED;
+    if (f.x < 10)  f.dir = 1;                                      // turn around at the edges
+    if (f.x > 230) f.dir = -1;
+    drawFriend(s, f, calling && i == caller);
+  }
 }
 
 // how open the head is right now (closed most of the time, then snaps open)
@@ -372,6 +438,7 @@ void drawFrame(uint32_t n) {
       frame.fillCircle(bulbX(i), bulbY(i) + 3, 5, rgb(c[0] * b / 4, c[1] * b / 4, c[2] * b / 4));
       frame.fillCircle(bulbX(i), bulbY(i) + 3, 2, rgb(c[0] * b, c[1] * b, c[2] * b));
     }
+    drawSearchParty(frame, n);
     int i = (n / 8) % NBULBS;
     neopixelWrite(LED_PIN, BULB_RGB[i % 5][0] / 8, BULB_RGB[i % 5][1] / 8, BULB_RGB[i % 5][2] / 8);
   } else {
@@ -385,7 +452,7 @@ void drawFrame(uint32_t n) {
     growl = open;
     // IF the Demogorgon opens its head, THEN Will hides. ELSE he peeks out, slowly.
     static float peek = 0;
-    float want = (open > 0) ? 0 : 0.5f + 0.5f * sinf(n * 0.03f);
+    float want = (open > 0) ? 0 : 0.6f + 0.4f * sinf(n * 0.03f);
     peek += (open > 0 ? 0.4f : 0.05f) * (want - peek);
     drawWill(frame, peek, true);
     drawDemogorgon(frame, DEMO_X, open, 2 * sinf(n * 0.05f), true);
