@@ -3,8 +3,8 @@
 A Stranger Things fan project for the [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer), a pocket-sized
 ESP32-S3 computer with a 240x135 colour screen, a keyboard, a speaker and an RGB LED.
 
-I built this with my niece (grade 9) on **Take Your Kid to School Day**. She didn't believe "coding with AI" was really
-coding, and she had mostly heard bad things about AI. So she came up with the ideas (the Demogorgon outside the house,
+I built this with my niece (grade 9) on **Take Your Kid to School Day**. She didn't think coding was her thing, and she
+had mostly heard bad things about AI. So she came up with the ideas (the Demogorgon outside the house,
 Will hiding, the friends searching for him), and each one was running on a real device a few minutes later.
 She liked it, and said it was fun. 🙂
 
