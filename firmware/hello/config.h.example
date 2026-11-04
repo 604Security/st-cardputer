@@ -1,0 +1,2 @@
+// Copy to config.h (gitignored) and put the real first name in.
+#define KID_NAME "friend"
