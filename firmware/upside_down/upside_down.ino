@@ -4,7 +4,7 @@
 // ============================================================================
 #include <TFT_eSPI.h>
 #include <driver/i2s.h>
-#if __has_include("config.h")
+#if __has_include("config.h") && !defined(SIM)
 #include "config.h"
 #endif
 #ifndef KID_NAME

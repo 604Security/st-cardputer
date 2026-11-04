@@ -1,3 +1,4 @@
 # Real first name lives here (config.h.example is committed instead)
 config.h
 secrets.h
+sim/out/

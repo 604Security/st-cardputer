@@ -17,3 +17,13 @@ flash: build
 	$(CLI) upload --fqbn $(FQBN) -p $(PORT) $(UPLOAD_FLAGS) $(SKETCH)
 monitor:
 	$(CLI) monitor -p $(PORT) -c baudrate=115200
+
+# Emulator: runs the real upside_down sketch on the laptop and saves pictures (needs g++ and Python PIL)
+#   make sim   -> docs/screenshots/cardputer-*.png
+SIM_FLAGS = -std=gnu++17 -O1 -w -Isim/shim -I$(HOME)/Arduino/libraries/TFT_eSPI
+.PHONY: sim
+sim:
+	@mkdir -p sim/out
+	g++ $(SIM_FLAGS) sim/main.cpp -o sim/out/sim
+	./sim/out/sim
+	python3 sim/to_png.py sim/out docs/screenshots
